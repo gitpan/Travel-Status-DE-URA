@@ -1,0 +1,46 @@
+This file contains message digests of all files listed in MANIFEST,
+signed via the Module::Signature module, version 0.73.
+
+To verify the content in this distribution, first make sure you have
+Module::Signature installed, then type:
+
+    % cpansign -v
+
+It will check each file's integrity, as well as the signature's
+validity.  If "==> Signature verified OK! <==" is not displayed,
+the distribution may already have been compromised, and you should
+not run its Makefile.PL or Build.PL.
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+SHA1 5e2db1f0c398207a0720a2bea5a86e1231e6c7ba Build.PL
+SHA1 361ddf32161f29d569443673ee7170d45de43444 COPYING
+SHA1 19b112248dd14b9d45430c7b905f63ce50cebd4f Changelog
+SHA1 0b54595c228cf6c715f2c0712217ebc1f84862f8 MANIFEST
+SHA1 5b07a10e5ca974ed37121f4fb7b0804f40bd60dc META.json
+SHA1 925792654cf9c1f7b269d6b7148d3e3e8d9e3247 META.yml
+SHA1 6994ff094f9f73086f08c40af74c1f431f8de6fb README
+SHA1 8fe1a0b7b6ab09d674eaaccd58d970fa3516712a bin/aseag-m
+SHA1 b08ae503956283cbfc4c07205c1e92b117422997 lib/Travel/Status/DE/ASEAG.pm
+SHA1 0f1a6e39ad330195171a3a7405d286b699239ee7 lib/Travel/Status/DE/URA.pm
+SHA1 f177127d35325e3cbe86cc0ca181ad6b4a719a08 lib/Travel/Status/DE/URA/Result.pm
+SHA1 fd251ffc56ca6e52020c906b61158f78b035679d t/10-pod-coverage.t
+SHA1 d9c7b5836a073efd623cf8711dca46267833bedb t/20-aseag.t
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+
+iQIcBAEBCgAGBQJStviKAAoJEBANW/tRZuAF9FEP/jGLgz47V9DToc1kjf4vVbLY
+P9LXxmsojwrOp+psaCcelYsjXiBN8LUDw1WC+S5+rOS+j7+JYv0WkAuPn+8BTxQJ
+HSpRaxTzqfxOMwTBKYw25cFaJQ2UNbqVJMqViMgfeROBXD4ICgFkIUNkvI+zpT2o
+zUXHuJ40Mtz/ayBPsB7Bqy78huJRFvc5IJ8Z0vPQygd8QTZ5E2rgCFoUtPZBNnMK
+3YO8xSlOMRoVk27N0yAeNZ0HSvRIPAg04Gqy6NCj0ffgwyCkuPQ9MEZUTFtMEDMx
+pbn/5WTA2XcGwGqComdwqyCZ99eKvVtWeDXCcKwpAKct2Js5jDOuDtEvqM0rwp18
+aOonm5z5W87H2T75tHp3EERQS12qWktLLXRSSrDaHPuRslDY4c5bcbrM2wi4EafF
+6sLzs11GPHmGsHQHAOZt+NqY92At3j69yQyoeb9lglwi2b4NGQHwH+8M9bkyW7RC
+Oex75bOdx8EDam+dBqVn8O6UakSbs8z+xYSDf30vKsJi5RSFdXDFtfhdfLLY/7JH
+0ooKP8l0PGMrfx3goMFE5vLDX/OUD2r9SLF7dOxmO/Wjufn0UHTgLHiW9ysLmfl0
+kuRFQ/WSXOgdHkOUeElNGi1dKr3AcHMY7d1V6FuHJdjhzP4i4Q8Ctfo3SFKCKu/4
+A4PbS90unldiY/hcntdM
+=NhA+
+-----END PGP SIGNATURE-----

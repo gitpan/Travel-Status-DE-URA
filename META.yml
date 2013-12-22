@@ -1,0 +1,39 @@
+---
+abstract: 'unofficial departure monitor for URA-based'
+author:
+  - 'Copyright (C) 2013 by Daniel Friesel E<lt>derf@finalrewind.orgE<gt>'
+build_requires:
+  File::Slurp: 0
+  Test::More: 0
+  Test::Pod: 0
+configure_requires:
+  Module::Build: 0.4
+dynamic_config: 1
+generated_by: 'Module::Build version 0.4003, CPAN::Meta::Converter version 2.120921'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Travel-Status-DE-URA
+provides:
+  Travel::Status::DE::ASEAG:
+    file: lib/Travel/Status/DE/ASEAG.pm
+    version: 0.01
+  Travel::Status::DE::URA:
+    file: lib/Travel/Status/DE/URA.pm
+    version: 0.01
+  Travel::Status::DE::URA::Result:
+    file: lib/Travel/Status/DE/URA/Result.pm
+    version: 0.01
+requires:
+  Carp: 0
+  Class::Accessor: 0
+  DateTime: 0
+  DateTime::Format::Duration: 0
+  Getopt::Long: 0
+  LWP::UserAgent: 0
+  List::MoreUtils: 0
+  perl: v5.10.1
+resources:
+  license: http://dev.perl.org/licenses/
+version: 0.01

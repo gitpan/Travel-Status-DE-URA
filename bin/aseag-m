@@ -1,0 +1,279 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use 5.010;
+
+no if $] >= 5.018, warnings => 'experimental::smartmatch';
+
+our $VERSION = '0.01';
+
+binmode( STDOUT, ':encoding(utf-8)' );
+
+use DateTime;
+use DateTime::Format::Duration;
+use Getopt::Long qw(:config no_ignore_case);
+use List::Util qw(max);
+use Travel::Status::DE::ASEAG;
+
+my (@grep_lines);
+my $full_route      = 0;
+my $hide_past       = 1;
+my $relative_times  = 0;
+my $strftime_format = '%H:%M:%S';
+my $strfrel_format  = '%M min';
+my $via;
+
+GetOptions(
+	'a|route-after'  => sub { $full_route = 'after' },
+	'b|route-before' => sub { $full_route = 'before' },
+	'h|help'         => sub { show_help(0) },
+	'f|full-route'   => \$full_route,
+	'l|line=s@'      => \@grep_lines,
+	'p|with-past'    => sub { $hide_past  = 0 },
+	'r|relative'     => \$relative_times,
+	's|strftime=s'   => \$strftime_format,
+	'S|strfrel=s'    => \$strfrel_format,
+	'v|via=s'        => \$via,
+	'V|version'      => \&show_version,
+
+) or show_help(1);
+
+if ( @ARGV != 1 ) {
+	show_help(1);
+}
+
+# --line=foo,bar support
+@grep_lines = split( qr{,}, join( q{,}, @grep_lines ) );
+
+my ($stop_name) = @ARGV;
+
+my $status = Travel::Status::DE::ASEAG->new;
+
+sub show_help {
+	my ($code) = @_;
+
+	print "Usage: aseag-m [-abfprV] [-l <lines>] [-v <stopname>] <stopname>\n"
+	  . "See also: man aseag-m\n";
+
+	exit $code;
+}
+
+sub show_version {
+	say "aseag-m version ${VERSION}";
+
+	exit 0;
+}
+
+sub display_result {
+	my (@lines) = @_;
+
+	my @format = qw(%- %- %-);
+
+	if ( not @lines ) {
+		die("Nothing to show\n");
+	}
+
+	if ($relative_times) {
+		$format[0] = q{%};
+	}
+
+	for my $i ( 0 .. 2 ) {
+		$format[$i] .= max map { length( $_->[$i] ) } @lines;
+		$format[$i] .= 's';
+	}
+
+	for my $line (@lines) {
+
+		printf( join( q{  }, @format ) . "\n", @{$line}[ 0 .. 2 ] );
+
+		if ($full_route) {
+			print "\n" . $line->[3] . "\n\n\n";
+		}
+	}
+
+	return;
+}
+
+sub show_results {
+	my @output;
+
+	my $dt_now = DateTime->now( time_zone => 'Europe/Berlin' );
+	my $dt_format
+	  = DateTime::Format::Duration->new( pattern => $strfrel_format );
+
+	for my $d (
+		$status->results(
+			full_routes => $full_route,
+			hide_past   => $hide_past,
+			stop        => $stop_name,
+			via         => $via,
+		)
+	  )
+	{
+
+		if ( ( @grep_lines and not( $d->line ~~ \@grep_lines ) ) ) {
+			next;
+		}
+
+		if ($relative_times) {
+			push(
+				@output,
+				[
+					$dt_format->format_duration(
+						$d->datetime->subtract_datetime($dt_now)
+					),
+					$d->line,
+					$d->destination,
+					join(
+						"\n",
+						map {
+							sprintf(
+								'%s  %s',
+								$dt_format->format_duration(
+									$_->[0]->subtract_datetime($dt_now)
+								),
+								$_->[1]
+							  )
+						} $d->route_timetable
+					)
+				]
+			);
+		}
+		else {
+			push(
+				@output,
+				[
+					$d->datetime->strftime($strftime_format),
+					$d->line,
+					$d->destination,
+					join(
+						"\n",
+						map {
+							sprintf( '%s  %s',
+								$_->[0]->strftime($strftime_format),
+								$_->[1] )
+						} $d->route_timetable
+					)
+				]
+			);
+		}
+	}
+
+	display_result(@output);
+
+	return;
+}
+
+if ( my $err = $status->errstr ) {
+	say STDERR "Request error: ${err}";
+	exit 2;
+}
+
+show_results();
+
+__END__
+
+=head1 NAME
+
+aseag-m - Unofficial interface to the ASEAG departure monitor
+
+=head1 SYNOPSIS
+
+B<aseag-m> [B<-abfprV>] [B<-l> I<lines>] [B<-s> I<timefmt> | B<-S> I<timefmt>]
+[B<-v> I<stopname>] I<stopname>
+
+=head1 VERSION
+
+version 0.01
+
+=head1 DESCRIPTION
+
+B<aseag-m> lists upcoming bus departures at the ASEAG stop I<name>.
+
+=head1 OPTIONS
+
+=over
+
+=item B<-a>, B<--route-after>
+
+For each departure, include the route leading to I<name>. Both stop names and
+departure times are shown.
+
+=item B<-b>, B<--route-before>
+
+For each departure, include the route after I<name>. Both stop names and
+departure times are shown.
+
+=item B<-f>, B<--full-route>
+
+For each departure, include the entire route (stop names and departure times).
+
+=item B<-l>, B<--line> I<lines>
+
+Limit output to departures of I<lines> (comma-separated list of line
+names, may be used multiple times).
+
+=item B<-p>, B<--with-past>
+
+Include past departures. Applies both to the departure output and to the
+route output of B<-a>, B<-b>, B<-f>.
+
+=item B<-r>, B<--relative>
+
+Show relative times. Appleas both to departure and route output.
+
+=item B<-s>, B<--strftime> I<format>
+
+Format absolute times in I<format>, applies both to departure and route
+output.  See DateTime(3pm) for allowed patterns.
+
+=item B<-S>, B<--strfrel> I<format>
+
+Format relative times in I<format>, only applies when used with B<-r>.
+See DateTime::Format::Duration(3pm) for allowed patterns.
+
+=item B<-v>, B<--via> I<stop>
+
+Only show lines which will also service I<stop> after I<name>. With B<-b>,
+I<stop> must be in the schedule before I<name>, with B<-f> it may be anywhere,
+with B<-a> (and by default) it must be after I<name>.
+
+=item B<-V>, B<--version>
+
+Show version information.
+
+=back
+
+=head1 EXIT STATUS
+
+Zero.
+
+=head1 CONFIGURATION
+
+None.
+
+=head1 DEPENDENCIES
+
+=over
+
+=item * Class::Accessor(3pm)
+
+=item * DateTime(3pm)
+
+=item * DateTime::Format::Duration(3pm)
+
+=item * LWP::UserAgent(3pm)
+
+=back
+
+=head1 BUGS AND LIMITATIONS
+
+Unknown.
+
+=head1 AUTHOR
+
+Copyright (C) 2013 by Daniel Friesel E<lt>derf@finalrewind.orgE<gt>
+
+=head1 LICENSE
+
+This program is licensed under the same terms as Perl itself.
