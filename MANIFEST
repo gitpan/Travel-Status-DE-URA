@@ -9,6 +9,9 @@ MANIFEST			This list of files
 README
 t/10-pod-coverage.t
 t/20-aseag.t
+t/21-get-stop-by-name.t
+t/22-results-via.t
+t/in/aseag_20131223T132300
 META.yml
 META.json
 SIGNATURE    Added here by Module::Build

@@ -6,7 +6,7 @@ use 5.010;
 
 no if $] >= 5.018, warnings => 'experimental::smartmatch';
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use parent 'Travel::Status::DE::URA';
 
@@ -32,7 +32,7 @@ Travel::Status::DE::ASEAG - unofficial ASEAG departure monitor.
     use Travel::Status::DE::ASEAG;
 
     my $status = Travel::Status::DE::ASEAG->new(
-        stop => 'Bushof'
+        stop => 'Aachen Bushof'
     );
 
     for my $d ($status->results) {
@@ -44,7 +44,7 @@ Travel::Status::DE::ASEAG - unofficial ASEAG departure monitor.
 
 =head1 VERSION
 
-version 0.01
+version 0.02
 
 =head1 DESCRIPTION
 

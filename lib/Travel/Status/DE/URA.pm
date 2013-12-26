@@ -6,12 +6,12 @@ use 5.010;
 
 no if $] >= 5.018, warnings => 'experimental::smartmatch';
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use Carp qw(confess cluck);
 use DateTime;
 use Encode qw(encode decode);
-use List::MoreUtils qw(none);
+use List::MoreUtils qw(firstval none uniq);
 use LWP::UserAgent;
 use Travel::Status::DE::URA::Result;
 
@@ -28,7 +28,6 @@ sub new {
 		ura_base    => $opt{ura_base},
 		ura_version => $opt{ura_version},
 		full_routes => $opt{full_routes} // 0,
-		fuzzy       => $opt{fuzzy} // 1,
 		hide_past   => $opt{hide_past} // 1,
 		stop        => $opt{stop},
 		via         => $opt{via},
@@ -55,15 +54,7 @@ sub new {
 
 	$self->{raw_str} = $response->decoded_content;
 
-	for my $dep ( split( /\r\n/, $self->{raw_str} ) ) {
-		$dep =~ s{^\[}{};
-		$dep =~ s{\]$}{};
-
-		# first field == 4 => version information, no departure
-		if ( substr( $dep, 0, 1 ) != 4 ) {
-			push( @{ $self->{raw_list} }, [ split( /"?,"?/, $dep ) ] );
-		}
-	}
+	$self->parse_raw_data;
 
 	return $self;
 }
@@ -71,19 +62,54 @@ sub new {
 sub new_from_raw {
 	my ( $class, %opt ) = @_;
 
-	my $self = { raw_str => $opt{raw_str}, };
+	my $self = {
+		ura_base    => $opt{ura_base},
+		ura_version => $opt{ura_version},
+		full_routes => $opt{full_routes} // 0,
+		hide_past   => $opt{hide_past} // 1,
+		stop        => $opt{stop},
+		via         => $opt{via},
+		raw_str     => $opt{raw_str}
+	};
 
-	for my $dep ( split( /\r\n/, $self->{raw} ) ) {
+	bless( $self, $class );
+
+	$self->parse_raw_data;
+
+	return $self;
+}
+
+sub parse_raw_data {
+	my ($self) = @_;
+
+	for my $dep ( split( /\r\n/, $self->{raw_str} ) ) {
 		$dep =~ s{^\[}{};
 		$dep =~ s{\]$}{};
 
 		# first field == 4 => version information, no departure
 		if ( substr( $dep, 0, 1 ) != 4 ) {
-			push( @{ $self->{raw_list} }, [ split( /"?,"?/, $dep ) ] );
+			my @fields = split( /"?,"?/, $dep );
+			push( @{ $self->{raw_list} },   \@fields );
+			push( @{ $self->{stop_names} }, $fields[1] );
 		}
 	}
 
-	return bless( $self, $class );
+	@{ $self->{stop_names} } = uniq @{ $self->{stop_names} };
+
+	return $self;
+}
+
+sub get_stop_by_name {
+	my ( $self, $name ) = @_;
+
+	my $nname = lc($name);
+	my $actual_match = firstval { $nname eq lc($_) } @{ $self->{stop_names} };
+
+	if ($actual_match) {
+		return $actual_match;
+	}
+
+	return ( grep { $_ =~ m{$name}i } @{ $self->{stop_names} } );
 }
 
 sub errstr {
@@ -92,42 +118,11 @@ sub errstr {
 	return $self->{errstr};
 }
 
-sub sprintf_date {
-	my ($e) = @_;
-
-	return sprintf( '%02d.%02d.%d',
-		$e->getAttribute('day'),
-		$e->getAttribute('month'),
-		$e->getAttribute('year'),
-	);
-}
-
-sub sprintf_time {
-	my ($e) = @_;
-
-	return sprintf( '%02d:%02d',
-		$e->getAttribute('hour'),
-		$e->getAttribute('minute'),
-	);
-}
-
-sub is_my_stop {
-	my ( $self, $stop, $my_stop, $fuzzy ) = @_;
-
-	if ($fuzzy) {
-		return ( $stop =~ m{ $my_stop }ix ? 1 : 0 );
-	}
-	else {
-		return ( $stop eq $my_stop );
-	}
-}
-
 sub results {
 	my ( $self, %opt ) = @_;
 	my @results;
 
 	my $full_routes = $opt{full_routes} // $self->{full_routes} // 0;
-	my $fuzzy       = $opt{fuzzy}       // $self->{fuzzy}       // 1;
 	my $hide_past   = $opt{hide_past}   // $self->{hide_past}   // 1;
 	my $stop        = $opt{stop}        // $self->{stop};
 	my $via         = $opt{via}         // $self->{via};
@@ -147,7 +142,7 @@ sub results {
 		) = @{$dep};
 		my @route;
 
-		if ( $stop and not $self->is_my_stop( $stopname, $stop, $fuzzy ) ) {
+		if ( $stop and not( $stopname eq $stop ) ) {
 			next;
 		}
 
@@ -156,15 +151,17 @@ sub results {
 			next;
 		}
 
+		$timestamp /= 1000;
+
+		if ( $hide_past and $ts_now > $timestamp ) {
+			next;
+		}
+
 		my $dt_dep = DateTime->from_epoch(
-			epoch     => $timestamp / 1000,
+			epoch     => $timestamp,
 			time_zone => 'Europe/Berlin'
 		);
 		my $ts_dep = $dt_dep->epoch;
-
-		if ( $hide_past and $dt_dep->subtract_datetime($dt_now)->is_negative ) {
-			next;
-		}
 
 		if ($full_routes) {
 			@route = map { [ $_->[9] / 1000, $_->[1] ] }
@@ -178,7 +175,7 @@ sub results {
 			}
 
 			if ( $via
-				and none { $self->is_my_stop( $_->[1], $via, $fuzzy ) } @route )
+				and none { $_->[1] eq $via } @route )
 			{
 				next;
 			}
@@ -247,7 +244,7 @@ realtime data providers (e.g. ASEAG)
     my $status = Travel::Status::DE::URA->new(
         ura_base => 'http://ivu.aseag.de/interfaces/ura',
         ura_version => '1',
-        stop => 'Bushof'
+        stop => 'Aachen Bushof'
     );
 
     for my $d ($status->results) {
@@ -259,7 +256,7 @@ realtime data providers (e.g. ASEAG)
 
 =head1 VERSION
 
-version 0.01
+version 0.02
 
 =head1 DESCRIPTION
 
@@ -304,6 +301,13 @@ the server.
 In case of an HTTP request error, returns a string describing it. If none
 occured, returns undef.
 
+=item $status->get_stop_by_name(I<$stopname>)
+
+Returns a list of stops matching I<$stopname>. For instance, if the stops
+"Aachen Bushof", "Eupen Bushof", "Brand" and "Brandweiher" exist, the
+parameter "bushof" will return "Aachen Bushof" and "Eupen Bushof", while
+"brand" will only return "Brand".
+
 =item $status->results(I<%opt>)
 
 Returns a list of Travel::Status::DE::URA::Result(3pm) objects, each describing
@@ -322,11 +326,6 @@ set.
 B<before> / B<after> limits the timetable to stops before / after the stop
 I<name> (if set).
 
-=item B<fuzzy> => I<bool> (default 1)
-
-A true value allows fuzzy matching for the stop I<name>, a false one
-requires an exact string match.
-
 =item B<hide_past> => I<bool> (default 1)
 
 Do not include past departures in the result list and the computed timetables.
@@ -340,7 +339,7 @@ Only return departures at stop I<name>.
 Only return departures containing I<vianame> in their route. If B<stop> is set,
 I<vianame> must be in the route after the stop I<name>. If, in addition to
 that, B<full_routes> is set to B<before>, I<vianame> must be in the route
-before the stop I<name>. Respects B<fuzzy>. Implies C<< full_routes> => 'after' >> unless
+before the stop I<name>. Implies C<< full_routes> => 'after' >> unless
 B<full_routes> is explicitly set to B<before> / B<after> / 1.
 
 =back
