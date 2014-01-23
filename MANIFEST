@@ -6,12 +6,13 @@ lib/Travel/Status/DE/ASEAG.pm
 lib/Travel/Status/DE/URA.pm
 lib/Travel/Status/DE/URA/Result.pm
 MANIFEST			This list of files
+META.json
 README
 t/10-pod-coverage.t
 t/20-aseag.t
 t/21-get-stop-by-name.t
 t/22-results-via.t
-t/in/aseag_20131223T132300
+t/23-results.t
+t/in/instant_V1
 META.yml
-META.json
 SIGNATURE    Added here by Module::Build

@@ -6,12 +6,12 @@ use 5.010;
 
 use parent 'Class::Accessor';
 
-our $VERSION = '0.02';
+use DateTime::Format::Duration;
+
+our $VERSION = '0.03';
 
 Travel::Status::DE::URA::Result->mk_ro_accessors(
-	qw(countdown countdown_sec date datetime destination line line_id
-	  stop stop_id time)
-);
+	qw(datetime destination line line_id stop stop_id));
 
 sub new {
 	my ( $obj, %conf ) = @_;
@@ -19,6 +19,37 @@ sub new {
 	my $ref = \%conf;
 
 	return bless( $ref, $obj );
+}
+
+sub countdown {
+	my ($self) = @_;
+
+	$self->{countdown} //= $self->datetime->subtract_datetime( $self->{dt_now} )
+	  ->in_units('minutes');
+
+	return $self->{countdown};
+}
+
+sub countdown_sec {
+	my ($self) = @_;
+	my $secpattern = DateTime::Format::Duration->new( pattern => '%s' );
+
+	$self->{countdown_sec} //= $secpattern->format_duration(
+		$self->datetime->subtract_datetime( $self->{dt_now} ) );
+
+	return $self->{countdown_sec};
+}
+
+sub date {
+	my ($self) = @_;
+
+	return $self->datetime->strftime('%d.%m.%Y');
+}
+
+sub time {
+	my ($self) = @_;
+
+	return $self->datetime->strftime('%H:%M:%S');
 }
 
 sub route_timetable {
@@ -54,7 +85,7 @@ departure received by Travel::Status::DE::URA
 
 =head1 VERSION
 
-version 0.02
+version 0.03
 
 =head1 DESCRIPTION
 

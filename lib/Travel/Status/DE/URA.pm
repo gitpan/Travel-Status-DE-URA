@@ -6,7 +6,7 @@ use 5.010;
 
 no if $] >= 5.018, warnings => 'experimental::smartmatch';
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 use Carp qw(confess cluck);
 use DateTime;
@@ -19,12 +19,15 @@ sub new {
 	my ( $class, %opt ) = @_;
 
 	my $ua = LWP::UserAgent->new(%opt);
+	my $response;
 
 	if ( not( $opt{ura_base} and $opt{ura_version} ) ) {
 		confess('ura_base and ura_version are mandatory');
 	}
 
 	my $self = {
+		datetime => $opt{datetime}
+		  // DateTime->now( time_zone => 'Europe/Berlin' ),
 		ura_base    => $opt{ura_base},
 		ura_version => $opt{ura_version},
 		full_routes => $opt{full_routes} // 0,
@@ -45,7 +48,12 @@ sub new {
 
 	$ua->env_proxy;
 
-	my $response = $ua->post( $self->{ura_instant_url}, $self->{post} );
+	if ( substr( $self->{ura_instant_url}, 0, 5 ) ne 'file:' ) {
+		$response = $ua->post( $self->{ura_instant_url}, $self->{post} );
+	}
+	else {
+		$response = $ua->get( $self->{ura_instant_url} );
+	}
 
 	if ( $response->is_error ) {
 		$self->{errstr} = $response->status_line;
@@ -53,26 +61,9 @@ sub new {
 	}
 
 	$self->{raw_str} = $response->decoded_content;
-
-	$self->parse_raw_data;
-
-	return $self;
-}
-
-sub new_from_raw {
-	my ( $class, %opt ) = @_;
-
-	my $self = {
-		ura_base    => $opt{ura_base},
-		ura_version => $opt{ura_version},
-		full_routes => $opt{full_routes} // 0,
-		hide_past   => $opt{hide_past} // 1,
-		stop        => $opt{stop},
-		via         => $opt{via},
-		raw_str     => $opt{raw_str}
-	};
-
-	bless( $self, $class );
+	if ( substr( $self->{ura_instant_url}, 0, 5 ) eq 'file:' ) {
+		$self->{raw_str} = encode( 'UTF-8', $self->{raw_str} );
+	}
 
 	$self->parse_raw_data;
 
@@ -127,7 +118,7 @@ sub results {
 	my $stop        = $opt{stop}        // $self->{stop};
 	my $via         = $opt{via}         // $self->{via};
 
-	my $dt_now = DateTime->now( time_zone => 'Europe/Berlin' );
+	my $dt_now = $self->{datetime};
 	my $ts_now = $dt_now->epoch;
 
 	if ($via) {
@@ -202,16 +193,11 @@ sub results {
 		push(
 			@results,
 			Travel::Status::DE::URA::Result->new(
-				date        => $dt_dep->strftime('%d.%m.%Y'),
-				time        => $dt_dep->strftime('%H:%M:%S'),
-				datetime    => $dt_dep,
-				line        => $linename,
-				line_id     => $lineid,
-				destination => decode( 'UTF-8', $dest ),
-				countdown =>
-				  $dt_dep->subtract_datetime($dt_now)->in_units('minutes'),
-				countdown_sec =>
-				  $dt_dep->subtract_datetime($dt_now)->in_units('seconds'),
+				datetime        => $dt_dep,
+				dt_now          => $dt_now,
+				line            => $linename,
+				line_id         => $lineid,
+				destination     => decode( 'UTF-8', $dest ),
 				route_timetable => [@route],
 				stop            => $stopname,
 				stop_id         => $stopid,
@@ -221,7 +207,7 @@ sub results {
 
 	@results = map { $_->[0] }
 	  sort { $a->[1] <=> $b->[1] }
-	  map { [ $_, $_->countdown ] } @results;
+	  map { [ $_, $_->datetime->epoch ] } @results;
 
 	$self->{results} = \@results;
 
@@ -256,7 +242,7 @@ realtime data providers (e.g. ASEAG)
 
 =head1 VERSION
 
-version 0.02
+version 0.03
 
 =head1 DESCRIPTION
 

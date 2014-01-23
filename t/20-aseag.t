@@ -5,23 +5,29 @@ use 5.010;
 use utf8;
 
 use Encode qw(decode);
-use File::Slurp qw(slurp);
 use List::Util qw(first);
 use Test::More tests => 14;
 
 BEGIN {
-	use_ok('Travel::Status::DE::ASEAG');
+	use_ok('Travel::Status::DE::URA');
 }
-require_ok('Travel::Status::DE::ASEAG');
+require_ok('Travel::Status::DE::URA');
 
-my $rawstr = slurp('t/in/aseag_20131223T132300');
-my $s      = Travel::Status::DE::ASEAG->new_from_raw(
-	raw_str   => $rawstr,
+my $s      = Travel::Status::DE::URA->new(
+	ura_base  => 'file:t/in',
+	ura_version => 1,
+	datetime  => DateTime->new(
+		year      => 2013,
+		month     => 12,
+		day       => 24,
+		hour      => 12,
+		minute    => 42,
+		time_zone => 'Europe/Berlin'
+	),
 	hide_past => 0
 );
 
-isa_ok( 'Travel::Status::DE::ASEAG', 'Travel::Status::DE::URA' );
-isa_ok( $s,                          'Travel::Status::DE::ASEAG' );
+isa_ok( $s,                          'Travel::Status::DE::URA' );
 
 can_ok( $s, qw(errstr results) );
 
@@ -31,6 +37,18 @@ is( $s->errstr, undef, 'errstr is not set' );
 my @results = $s->results;
 
 is( @results, 16208, 'All departures parsed and returned' );
+
+# results are sorted by time
+my $prev = $results[0];
+my $ok = 1;
+for my $i (1 .. $#results) {
+	my $cur = $results[$i];
+	if ($prev->datetime->epoch > $cur->datetime->epoch) {
+		$ok = 0;
+		last;
+	}
+}
+ok($ok, 'Results are ordered by departure');
 
 # hide_past => 1 should return nothing
 
@@ -59,8 +77,17 @@ is( ( first { $_->stop ne 'Aachen Bushof' } @results ),
 	undef, '"Aachen Bushof" only matches "Aachen Bushof"' );
 
 # exact matching: also works in constructor
-$s = Travel::Status::DE::ASEAG->new_from_raw(
-	raw_str   => $rawstr,
+$s = Travel::Status::DE::URA->new(
+	ura_base  => 'file:t/in',
+	ura_version => 1,
+	datetime  => DateTime->new(
+		year      => 2013,
+		month     => 12,
+		day       => 23,
+		hour      => 12,
+		minute    => 42,
+		time_zone => 'Europe/Berlin'
+	),
 	hide_past => 0,
 	stop      => 'Aachen Bushof',
 );
